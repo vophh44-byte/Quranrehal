@@ -1,25 +1,10 @@
 {
-  "name": "Quran Rehal \u2014 Usmania Institute Of Excellence",
-  "short_name": "Quran Rehal",
-  "description": "Quran Rehal dashboard and teaching application for Usmania Institute Of Excellence.",
+  "name": "QuranRehal \u2014 Learning Platform",
+  "short_name": "QuranRehal",
   "start_url": "./",
-  "scope": "./",
   "display": "standalone",
-  "orientation": "landscape",
   "background_color": "#05070d",
-  "theme_color": "#05070d",
-  "icons": [
-    {
-      "src": "./icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "./icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ]
+  "theme_color": "#0e8f89",
+  "description": "Quran learning and educational platform.",
+  "icons": []
 }

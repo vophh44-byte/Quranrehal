@@ -3,13 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Usmania Institute Of Excellence — SCC 4th Year Dashboard</title>
-<link rel="manifest" href="./manifest.json">
-<meta name="theme-color" content="#05070d">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<title>QuranRehal — Learning Platform</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
@@ -637,6 +631,7 @@ body.night-mode #app{ filter:brightness(0.55) saturate(0.85); transition:filter 
   border-radius:12px; font-size:12.5px; font-weight:600; z-index:800; box-shadow:var(--shadow-lg); opacity:0; transition:.3s; pointer-events:none;}
 .toast.show{ opacity:1; transform:translateX(-50%) translateY(-4px); }
 </style>
+  <link rel="manifest" href="./manifest.json">
 </head>
 <body>
 <div id="ambientBg"></div>
@@ -4975,29 +4970,12 @@ function renderRecvFiles(){
 </script>
 
 <script>
-/* Quran Rehal PWA bootstrap */
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./service-worker.js', {scope:'./'}).catch(err => console.warn('PWA service worker:', err));
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
   });
 }
-let deferredInstallPrompt = null;
-window.addEventListener('beforeinstallprompt', (event) => {
-  event.preventDefault();
-  deferredInstallPrompt = event;
-  window.dispatchEvent(new CustomEvent('quranrehalinstallavailable'));
-});
-window.addEventListener('appinstalled', () => {
-  deferredInstallPrompt = null;
-  window.dispatchEvent(new CustomEvent('quranrehalinstalled'));
-});
-window.quranRehalInstall = async function(){
-  if(!deferredInstallPrompt) return false;
-  deferredInstallPrompt.prompt();
-  const result = await deferredInstallPrompt.userChoice;
-  deferredInstallPrompt = null;
-  return result && result.outcome === 'accepted';
-};
 </script>
+
 </body>
 </html>
