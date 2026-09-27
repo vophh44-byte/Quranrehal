@@ -1983,106 +1983,369 @@ document.getElementById('saveCustomThemeBtn').addEventListener('click', ()=>{
   showToast('Custom theme saved & applied ✓');
 });
 
-/* ---------- storage helpers ----------
-   Uses the Claude-artifact window.storage API when available (previewing inside
-   claude.ai), and transparently falls back to localStorage so the dashboard also
-   saves everything when downloaded and opened as a normal HTML file in a browser.
-   Every key is automatically namespaced under the current CLASS_ID so each class
-   keeps its own independent timetable / attendance / notes / bells. */
+/* ---------- SUPABASE STORAGE HELPERS ---------- */
+
 const LS_PREFIX = 'uie_dashboard::';
+const INSTITUTE_PREFIX = 'institute::';
+
 function hasCloudStorage(){
-  return (typeof window.storage !== 'undefined') && window.storage && typeof window.storage.set === 'function';
+  return typeof supabaseClient !== 'undefined';
 }
+
+
+/* ---------- CLASS STORAGE ---------- */
+
 async function storeSet(key, value){
-  const k = fullKey(key);
-  if(hasCloudStorage()){
-    try{ await window.storage.set(k, JSON.stringify(value), false); return true; }catch(e){ console.error('cloud save fail',k,e); }
-  }
-  try{ localStorage.setItem(LS_PREFIX+k, JSON.stringify(value)); return true; }
-  catch(e){ console.error('local save fail',k,e); return false; }
-}
-async function storeGet(key){
-  const k = fullKey(key);
-  if(hasCloudStorage()){
-    try{ const r = await window.storage.get(k, false); if(r) return JSON.parse(r.value); }catch(e){}
-  }
-  try{ const raw = localStorage.getItem(LS_PREFIX+k); return raw ? JSON.parse(raw) : null; }
-  catch(e){ return null; }
-}
-async function storeList(prefix){
-  const p = fullKey(prefix);
-  if(hasCloudStorage()){
-    try{
-      const r = await window.storage.list(p, false);
-      if(r && r.keys) return r.keys.map(k => (CLASS_ID && k.startsWith(CLASS_ID+'::')) ? k.slice(CLASS_ID.length+2) : k);
-    }catch(e){}
-  }
-  const keys = [];
   try{
-    for(let i=0;i<localStorage.length;i++){
-      const k = localStorage.key(i);
-      if(k && k.startsWith(LS_PREFIX+p)) keys.push(k.slice((LS_PREFIX+(CLASS_ID?CLASS_ID+'::':'')).length));
+    const classId = String(CLASS_ID || '').trim();
+
+    if(!classId){
+      throw new Error('CLASS_ID is empty');
     }
-  }catch(e){}
-  return keys;
-}
-async function storeDelete(key){
-  const k = fullKey(key);
-  if(hasCloudStorage()){
-    try{ await window.storage.delete(k, false); return; }catch(e){}
+
+    const { data: existing, error: findError } =
+      await supabaseClient
+        .from('app_data')
+        .select('id')
+        .eq('class_id', classId)
+        .eq('data_key', key)
+        .eq('is_global', false)
+        .maybeSingle();
+
+    if(findError) throw findError;
+
+    if(existing){
+
+      const { error } = await supabaseClient
+        .from('app_data')
+        .update({
+          data: value,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existing.id);
+
+      if(error) throw error;
+
+    }else{
+
+      const { error } = await supabaseClient
+        .from('app_data')
+        .insert({
+          class_id: classId,
+          data_key: key,
+          data: value,
+          is_global: false
+        });
+
+      if(error) throw error;
+    }
+
+    console.log('QuranRehal: saved to Supabase', classId, key);
+    return true;
+
+  }catch(error){
+
+    console.error('QuranRehal: Supabase save failed', error);
+
+    /* Local fallback */
+    try{
+      localStorage.setItem(
+        LS_PREFIX + fullKey(key),
+        JSON.stringify(value)
+      );
+      return true;
+    }catch(e){
+      console.error('Local fallback failed', e);
+      return false;
+    }
   }
-  try{ localStorage.removeItem(LS_PREFIX+k); }catch(e){}
 }
-// backwards-compatible aliases used elsewhere in this file
+
+
+async function storeGet(key){
+  try{
+
+    const classId = String(CLASS_ID || '').trim();
+
+    if(!classId){
+      throw new Error('CLASS_ID is empty');
+    }
+
+    const { data, error } =
+      await supabaseClient
+        .from('app_data')
+        .select('data')
+        .eq('class_id', classId)
+        .eq('data_key', key)
+        .eq('is_global', false)
+        .maybeSingle();
+
+    if(error) throw error;
+
+    if(data){
+      console.log('QuranRehal: loaded from Supabase', classId, key);
+      return data.data;
+    }
+
+  }catch(error){
+
+    console.error('QuranRehal: Supabase load failed', error);
+
+  }
+
+  /* Local fallback */
+  try{
+
+    const raw = localStorage.getItem(
+      LS_PREFIX + fullKey(key)
+    );
+
+    return raw ? JSON.parse(raw) : null;
+
+  }catch(e){
+
+    return null;
+
+  }
+}
+
+
+async function storeList(prefix){
+
+  try{
+
+    const classId = String(CLASS_ID || '').trim();
+
+    if(!classId) return [];
+
+    const { data, error } =
+      await supabaseClient
+        .from('app_data')
+        .select('data_key')
+        .eq('class_id', classId)
+        .eq('is_global', false)
+        .like('data_key', prefix + '%');
+
+    if(error) throw error;
+
+    return (data || []).map(row => row.data_key);
+
+  }catch(error){
+
+    console.error('QuranRehal: Supabase list failed', error);
+    return [];
+
+  }
+}
+
+
+async function storeDelete(key){
+
+  try{
+
+    const classId = String(CLASS_ID || '').trim();
+
+    if(!classId){
+      throw new Error('CLASS_ID is empty');
+    }
+
+    const { error } =
+      await supabaseClient
+        .from('app_data')
+        .delete()
+        .eq('class_id', classId)
+        .eq('data_key', key)
+        .eq('is_global', false);
+
+    if(error) throw error;
+
+    console.log('QuranRehal: deleted from Supabase', classId, key);
+    return true;
+
+  }catch(error){
+
+    console.error('QuranRehal: Supabase delete failed', error);
+
+    try{
+      localStorage.removeItem(
+        LS_PREFIX + fullKey(key)
+      );
+    }catch(e){}
+
+    return false;
+  }
+}
+
+
+/* Backwards-compatible aliases */
 const saveData = storeSet;
 const loadData = storeGet;
 
-/* ---------- INSTITUTE-WIDE SHARED STORAGE ----------
-   Same idea as storeGet/Set, but NOT namespaced per class, and marked
-   shared:true — when running as a Claude artifact with cloud storage,
-   this genuinely syncs across every classroom's device viewing the
-   same published dashboard. Falls back to this-device-only storage
-   when cloud storage isn't available (e.g. downloaded as a plain
-   .html file) — still works, just doesn't sync between devices. */
-const INSTITUTE_PREFIX = 'institute::';
+
+/* ---------- INSTITUTE-WIDE STORAGE ---------- */
+
 async function instituteStoreSet(key, value){
-  const k = INSTITUTE_PREFIX+key;
-  if(hasCloudStorage()){
-    try{ await window.storage.set(k, JSON.stringify(value), true); return true; }catch(e){ console.error('institute cloud save fail',k,e); }
-  }
-  try{ localStorage.setItem(LS_PREFIX+k, JSON.stringify(value)); return true; }
-  catch(e){ return false; }
-}
-async function instituteStoreGet(key){
-  const k = INSTITUTE_PREFIX+key;
-  if(hasCloudStorage()){
-    try{ const r = await window.storage.get(k, true); if(r) return JSON.parse(r.value); }catch(e){}
-  }
-  try{ const raw = localStorage.getItem(LS_PREFIX+k); return raw ? JSON.parse(raw) : null; }
-  catch(e){ return null; }
-}
-function institutionDataIsShared(){ return hasCloudStorage(); }
-async function rawGet(fullKeyStr){
-  if(hasCloudStorage()){
-    try{ const r = await window.storage.get(fullKeyStr, false); if(r) return JSON.parse(r.value); }catch(e){}
-  }
-  try{ const raw = localStorage.getItem(LS_PREFIX+fullKeyStr); return raw ? JSON.parse(raw) : null; }
-  catch(e){ return null; }
-}
-async function rawList(prefixStr){
-  if(hasCloudStorage()){
-    try{ const r = await window.storage.list(prefixStr, false); if(r && r.keys) return r.keys; }catch(e){}
-  }
-  const keys = [];
+
   try{
-    for(let i=0;i<localStorage.length;i++){
-      const k = localStorage.key(i);
-      if(k && k.startsWith(LS_PREFIX+prefixStr)) keys.push(k.slice(LS_PREFIX.length));
+
+    const { data: existing, error: findError } =
+      await supabaseClient
+        .from('app_data')
+        .select('id')
+        .eq('class_id', 'GLOBAL')
+        .eq('data_key', INSTITUTE_PREFIX + key)
+        .eq('is_global', true)
+        .maybeSingle();
+
+    if(findError) throw findError;
+
+    if(existing){
+
+      const { error } =
+        await supabaseClient
+          .from('app_data')
+          .update({
+            data: value,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existing.id);
+
+      if(error) throw error;
+
+    }else{
+
+      const { error } =
+        await supabaseClient
+          .from('app_data')
+          .insert({
+            class_id: 'GLOBAL',
+            data_key: INSTITUTE_PREFIX + key,
+            data: value,
+            is_global: true
+          });
+
+      if(error) throw error;
     }
-  }catch(e){}
-  return keys;
+
+    console.log('QuranRehal: institute data saved', key);
+    return true;
+
+  }catch(error){
+
+    console.error('QuranRehal: institute save failed', error);
+
+    try{
+
+      localStorage.setItem(
+        LS_PREFIX + INSTITUTE_PREFIX + key,
+        JSON.stringify(value)
+      );
+
+      return true;
+
+    }catch(e){
+
+      return false;
+
+    }
+  }
 }
 
+
+async function instituteStoreGet(key){
+
+  try{
+
+    const { data, error } =
+      await supabaseClient
+        .from('app_data')
+        .select('data')
+        .eq('class_id', 'GLOBAL')
+        .eq('data_key', INSTITUTE_PREFIX + key)
+        .eq('is_global', true)
+        .maybeSingle();
+
+    if(error) throw error;
+
+    if(data){
+      console.log('QuranRehal: institute data loaded', key);
+      return data.data;
+    }
+
+  }catch(error){
+
+    console.error('QuranRehal: institute load failed', error);
+
+  }
+
+  try{
+
+    const raw = localStorage.getItem(
+      LS_PREFIX + INSTITUTE_PREFIX + key
+    );
+
+    return raw ? JSON.parse(raw) : null;
+
+  }catch(e){
+
+    return null;
+
+  }
+}
+
+
+function institutionDataIsShared(){
+  return true;
+}
+
+
+/* ---------- RAW STORAGE ---------- */
+
+async function rawGet(fullKeyStr){
+
+  try{
+
+    const { data, error } =
+      await supabaseClient
+        .from('app_data')
+        .select('data')
+        .eq('data_key', fullKeyStr)
+        .maybeSingle();
+
+    if(error) throw error;
+
+    return data ? data.data : null;
+
+  }catch(error){
+
+    console.error('QuranRehal: rawGet failed', error);
+    return null;
+
+  }
+}
+
+
+async function rawList(prefixStr){
+
+  try{
+
+    const { data, error } =
+      await supabaseClient
+        .from('app_data')
+        .select('data_key')
+        .like('data_key', prefixStr + '%');
+
+    if(error) throw error;
+
+    return (data || []).map(row => row.data_key);
+
+  }catch(error){
+
+    console.error('QuranRehal: rawList failed', error);
+    return [];
+
+  }
+}
 /* =========================================================
    INIT
    ========================================================= */
