@@ -20,6 +20,7 @@ const supabaseClient = window.supabase.createClient(
   SUPABASE_ANON_KEY
 );
 
+console.log("Supabase client initialized:", supabaseClient);
 // SUPABASE CONNECTION TEST
 supabaseClient.auth.getSession().then(({ data, error }) => {
     if (error) {
