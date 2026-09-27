@@ -19,7 +19,7 @@ const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 );
-
+console.log("QuranRehal: Supabase connected successfully!");
 console.log("Supabase client initialized:", supabaseClient);
 // SUPABASE CONNECTION TEST
 supabaseClient.auth.getSession().then(({ data, error }) => {
