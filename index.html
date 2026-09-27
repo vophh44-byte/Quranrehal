@@ -19,6 +19,15 @@ const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 );
+
+// SUPABASE CONNECTION TEST
+supabaseClient.auth.getSession().then(({ data, error }) => {
+    if (error) {
+        console.error("SUPABASE CONNECTION FAILED:", error);
+    } else {
+        console.log("SUPABASE CONNECTION SUCCESSFUL:", data);
+    }
+});
 </script>
 <style>
 :root{
