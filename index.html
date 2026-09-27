@@ -1989,20 +1989,26 @@ const LS_PREFIX = 'uie_dashboard::';
 const INSTITUTE_PREFIX = 'institute::';
 
 function hasCloudStorage(){
-  return typeof supabaseClient !== 'undefined';
+  return (
+    typeof supabaseClient !== 'undefined' &&
+    supabaseClient !== null
+  );
 }
 
 
-/* ---------- CLASS STORAGE ---------- */
+/* =========================================================
+   CLASS STORAGE
+   ========================================================= */
 
 async function storeSet(key, value){
+  const classId = String(CLASS_ID || '').trim();
+
+  if(!classId){
+    console.error('QuranRehal: CLASS_ID is empty');
+    return false;
+  }
+
   try{
-    const classId = String(CLASS_ID || '').trim();
-
-    if(!classId){
-      throw new Error('CLASS_ID is empty');
-    }
-
     const { data: existing, error: findError } =
       await supabaseClient
         .from('app_data')
@@ -2016,36 +2022,46 @@ async function storeSet(key, value){
 
     if(existing){
 
-      const { error } = await supabaseClient
-        .from('app_data')
-        .update({
-          data: value,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', existing.id);
+      const { error } =
+        await supabaseClient
+          .from('app_data')
+          .update({
+            data: value,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existing.id);
 
       if(error) throw error;
 
     }else{
 
-      const { error } = await supabaseClient
-        .from('app_data')
-        .insert({
-          class_id: classId,
-          data_key: key,
-          data: value,
-          is_global: false
-        });
+      const { error } =
+        await supabaseClient
+          .from('app_data')
+          .insert({
+            class_id: classId,
+            data_key: key,
+            data: value,
+            is_global: false
+          });
 
       if(error) throw error;
     }
 
-    console.log('QuranRehal: saved to Supabase', classId, key);
+    console.log(
+      'QuranRehal: saved to Supabase',
+      classId,
+      key
+    );
+
     return true;
 
   }catch(error){
 
-    console.error('QuranRehal: Supabase save failed', error);
+    console.error(
+      'QuranRehal: Supabase save failed:',
+      error
+    );
 
     /* Local fallback */
     try{
@@ -2053,9 +2069,20 @@ async function storeSet(key, value){
         LS_PREFIX + fullKey(key),
         JSON.stringify(value)
       );
+
+      console.log(
+        'QuranRehal: saved to localStorage fallback'
+      );
+
       return true;
-    }catch(e){
-      console.error('Local fallback failed', e);
+
+    }catch(localError){
+
+      console.error(
+        'QuranRehal: local fallback failed:',
+        localError
+      );
+
       return false;
     }
   }
@@ -2063,13 +2090,14 @@ async function storeSet(key, value){
 
 
 async function storeGet(key){
+  const classId = String(CLASS_ID || '').trim();
+
+  if(!classId){
+    console.error('QuranRehal: CLASS_ID is empty');
+    return null;
+  }
+
   try{
-
-    const classId = String(CLASS_ID || '').trim();
-
-    if(!classId){
-      throw new Error('CLASS_ID is empty');
-    }
 
     const { data, error } =
       await supabaseClient
@@ -2083,14 +2111,22 @@ async function storeGet(key){
     if(error) throw error;
 
     if(data){
-      console.log('QuranRehal: loaded from Supabase', classId, key);
+
+      console.log(
+        'QuranRehal: loaded from Supabase',
+        classId,
+        key
+      );
+
       return data.data;
     }
 
   }catch(error){
 
-    console.error('QuranRehal: Supabase load failed', error);
-
+    console.error(
+      'QuranRehal: Supabase load failed:',
+      error
+    );
   }
 
   /* Local fallback */
@@ -2102,21 +2138,25 @@ async function storeGet(key){
 
     return raw ? JSON.parse(raw) : null;
 
-  }catch(e){
+  }catch(error){
+
+    console.error(
+      'QuranRehal: local load failed:',
+      error
+    );
 
     return null;
-
   }
 }
 
 
 async function storeList(prefix){
 
+  const classId = String(CLASS_ID || '').trim();
+
+  if(!classId) return [];
+
   try{
-
-    const classId = String(CLASS_ID || '').trim();
-
-    if(!classId) return [];
 
     const { data, error } =
       await supabaseClient
@@ -2128,26 +2168,32 @@ async function storeList(prefix){
 
     if(error) throw error;
 
-    return (data || []).map(row => row.data_key);
+    return (data || []).map(
+      row => row.data_key
+    );
 
   }catch(error){
 
-    console.error('QuranRehal: Supabase list failed', error);
-    return [];
+    console.error(
+      'QuranRehal: Supabase list failed:',
+      error
+    );
 
+    return [];
   }
 }
 
 
 async function storeDelete(key){
 
+  const classId = String(CLASS_ID || '').trim();
+
+  if(!classId){
+    console.error('QuranRehal: CLASS_ID is empty');
+    return false;
+  }
+
   try{
-
-    const classId = String(CLASS_ID || '').trim();
-
-    if(!classId){
-      throw new Error('CLASS_ID is empty');
-    }
 
     const { error } =
       await supabaseClient
@@ -2159,12 +2205,20 @@ async function storeDelete(key){
 
     if(error) throw error;
 
-    console.log('QuranRehal: deleted from Supabase', classId, key);
+    console.log(
+      'QuranRehal: deleted from Supabase',
+      classId,
+      key
+    );
+
     return true;
 
   }catch(error){
 
-    console.error('QuranRehal: Supabase delete failed', error);
+    console.error(
+      'QuranRehal: Supabase delete failed:',
+      error
+    );
 
     try{
       localStorage.removeItem(
@@ -2178,11 +2232,14 @@ async function storeDelete(key){
 
 
 /* Backwards-compatible aliases */
+
 const saveData = storeSet;
 const loadData = storeGet;
 
 
-/* ---------- INSTITUTE-WIDE STORAGE ---------- */
+/* =========================================================
+   INSTITUTE-WIDE STORAGE
+   ========================================================= */
 
 async function instituteStoreSet(key, value){
 
@@ -2227,12 +2284,19 @@ async function instituteStoreSet(key, value){
       if(error) throw error;
     }
 
-    console.log('QuranRehal: institute data saved', key);
+    console.log(
+      'QuranRehal: institute data saved',
+      key
+    );
+
     return true;
 
   }catch(error){
 
-    console.error('QuranRehal: institute save failed', error);
+    console.error(
+      'QuranRehal: institute save failed:',
+      error
+    );
 
     try{
 
@@ -2246,7 +2310,6 @@ async function instituteStoreSet(key, value){
     }catch(e){
 
       return false;
-
     }
   }
 }
@@ -2268,14 +2331,21 @@ async function instituteStoreGet(key){
     if(error) throw error;
 
     if(data){
-      console.log('QuranRehal: institute data loaded', key);
+
+      console.log(
+        'QuranRehal: institute data loaded',
+        key
+      );
+
       return data.data;
     }
 
   }catch(error){
 
-    console.error('QuranRehal: institute load failed', error);
-
+    console.error(
+      'QuranRehal: institute load failed:',
+      error
+    );
   }
 
   try{
@@ -2286,20 +2356,21 @@ async function instituteStoreGet(key){
 
     return raw ? JSON.parse(raw) : null;
 
-  }catch(e){
+  }catch(error){
 
     return null;
-
   }
 }
 
 
 function institutionDataIsShared(){
-  return true;
+  return hasCloudStorage();
 }
 
 
-/* ---------- RAW STORAGE ---------- */
+/* =========================================================
+   RAW STORAGE
+   ========================================================= */
 
 async function rawGet(fullKeyStr){
 
@@ -2318,9 +2389,12 @@ async function rawGet(fullKeyStr){
 
   }catch(error){
 
-    console.error('QuranRehal: rawGet failed', error);
-    return null;
+    console.error(
+      'QuranRehal: rawGet failed:',
+      error
+    );
 
+    return null;
   }
 }
 
@@ -2337,15 +2411,24 @@ async function rawList(prefixStr){
 
     if(error) throw error;
 
-    return (data || []).map(row => row.data_key);
+    return (data || []).map(
+      row => row.data_key
+    );
 
   }catch(error){
 
-    console.error('QuranRehal: rawList failed', error);
-    return [];
+    console.error(
+      'QuranRehal: rawList failed:',
+      error
+    );
 
+    return [];
   }
 }
+
+/* =========================================================
+   INIT
+   ========================================================= */
 /* =========================================================
    INIT
    ========================================================= */
